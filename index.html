@@ -10,10 +10,11 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><h1>Beginner Strength + 5K</h1></header>
+<header><h1>Beginner Strength + 5K</h1><span id="sync"></span></header>
 
 <main>
   <section id="tab-today">
@@ -95,6 +96,16 @@
   <div class="row">
     <button id="timerPause" type="button">Pause</button>
     <button id="timerStop" type="button">Stop</button>
+  </div>
+</div>
+
+<div id="ask" hidden role="dialog" aria-modal="true" aria-labelledby="askText">
+  <div class="ask-box">
+    <p id="askText"></p>
+    <div class="row">
+      <button id="askNo" type="button" class="secondary">Cancel</button>
+      <button id="askYes" type="button">Yes</button>
+    </div>
   </div>
 </div>
 

@@ -9,7 +9,81 @@ function load() {
   } catch {}
   return { logs: {}, runs: {} }; // logs[date] = { day, sets: { exId: [{ w, r }] } }, runs['week-run'] = date
 }
-function save() { localStorage.setItem(KEY, JSON.stringify(db)); }
+function saveLocal() {
+  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {}
+}
+
+// When opened as a claude.ai link, data is also kept in the person's private account storage,
+// so it isn't lost if the browser clears its data. Elsewhere it stays on the device only.
+let cloud = null;
+
+async function connectCloud() {
+  try {
+    const [store, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    const uid = store && user ? await user.id() : null;
+    if (!uid) return;
+    const col = store.collection('data/users/' + uid);
+    const snap = await col.limit(1000).get();
+    const seen = new Set();
+    snap.docs.forEach((d) => {
+      const body = d.data();
+      seen.add(d.id);
+      if (d.id === 'runs') db.runs = { ...db.runs, ...body.runs };
+      else if (d.id.startsWith('day-')) db.logs[d.id.slice(4)] = body.log;
+    });
+    cloud = col;
+    // Upload anything that was only on this device.
+    for (const date of Object.keys(db.logs)) if (!seen.has('day-' + date)) await pushDay(date);
+    await pushRuns();
+    saveLocal();
+    render();
+  } catch {
+    cloud = null;
+  }
+  showSyncStatus();
+}
+
+async function pushDay(date) {
+  if (!cloud) return;
+  const log = db.logs[date];
+  const ref = cloud.doc('day-' + date);
+  if (log && Object.values(log.sets).some((s) => s.length)) await ref.set({ log });
+  else await ref.delete();
+}
+async function pushRuns() {
+  if (cloud) await cloud.doc('runs').set({ runs: db.runs });
+}
+
+function save({ date, runs } = {}) {
+  saveLocal();
+  if (!cloud) return;
+  const jobs = [];
+  if (date) jobs.push(pushDay(date));
+  if (runs) jobs.push(pushRuns());
+  Promise.all(jobs).then(showSyncStatus, () => showSyncStatus('Couldn’t save to your account. Saved on this device.'));
+}
+
+function showSyncStatus(error) {
+  $('sync').textContent = error || (cloud ? 'Saved to your account' : 'Saved on this device');
+  $('sync').classList.toggle('warn', Boolean(error));
+}
+
+// In-page confirm: browser pop-ups are blocked inside some app views.
+function ask(message, yes = 'Yes') {
+  return new Promise((resolve) => {
+    $('askText').textContent = message;
+    $('askYes').textContent = yes;
+    $('ask').hidden = false;
+    $('askYes').focus();
+    const done = (answer) => {
+      $('ask').hidden = true;
+      $('askYes').onclick = $('askNo').onclick = null;
+      resolve(answer);
+    };
+    $('askYes').onclick = () => done(true);
+    $('askNo').onclick = () => done(false);
+  });
+}
 
 let db = load();
 const todayStr = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
@@ -92,14 +166,14 @@ $('exercises').addEventListener('click', (e) => {
   } else {
     return;
   }
-  save();
+  save({ date });
   renderToday();
 });
 
 $('date').addEventListener('change', () => { $('day').value = dayForDate($('date').value); renderToday(); });
 $('day').addEventListener('change', () => {
   const log = db.logs[$('date').value];
-  if (log) { log.day = $('day').value; save(); }
+  if (log) { log.day = $('day').value; save({ date: $('date').value }); }
   renderToday();
 });
 
@@ -188,7 +262,7 @@ $('runGrid').addEventListener('click', (e) => {
   if (!key) return;
   if (db.runs[key]) delete db.runs[key];
   else db.runs[key] = todayStr();
-  save();
+  save({ runs: true });
   renderRun();
 });
 
@@ -234,7 +308,7 @@ function stopTimer() {
 
 function finishRun() {
   db.runs[`${timer.session.week}-${timer.session.run}`] = todayStr();
-  save();
+  save({ runs: true });
   announce('Session complete. Well done!');
   stopTimer();
   render();
@@ -257,8 +331,8 @@ $('timerPause').addEventListener('click', () => {
   else { timer.done = elapsed(); timer.paused = true; $('timerPause').textContent = 'Resume'; }
 });
 
-$('timerStop').addEventListener('click', () => {
-  if (confirm('Stop this run? It will not be marked as done.')) stopTimer();
+$('timerStop').addEventListener('click', async () => {
+  if (await ask('Stop this run? It won’t be marked as done.', 'Stop run')) stopTimer();
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -274,7 +348,12 @@ function renderPlan() {
   </div>`).join('');
 }
 
-function download(name, type, text) {
+async function download(name, type, text) {
+  const files = await window.claude?.use('downloads');
+  if (files) {
+    try { await files.save({ filename: name, data: text }); } catch {}
+    return;
+  }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type }));
   a.download = name;
@@ -308,12 +387,18 @@ $('restore').addEventListener('change', async (e) => {
   try {
     const data = JSON.parse(await file.text());
     if (!data.logs || !data.runs) throw new Error();
-    if (!confirm('Replace all current data with this backup?')) return;
+    if (!(await ask('Replace all your current data with this backup?', 'Replace'))) return;
+    const old = Object.keys(db.logs);
     db = { logs: data.logs, runs: data.runs };
-    save();
+    saveLocal();
+    if (cloud) {
+      for (const date of new Set([...old, ...Object.keys(db.logs)])) await pushDay(date);
+      await pushRuns();
+    }
     render();
+    showSyncStatus();
   } catch {
-    alert('That file is not a valid backup.');
+    showSyncStatus('That file isn’t a training backup. Choose a .json file made with Backup.');
   } finally {
     e.target.value = '';
   }
@@ -332,5 +417,7 @@ $('day').innerHTML = Object.entries(DAYS).map(([k, d]) => `<option value="${k}">
 $('date').value = todayStr();
 $('day').value = dayForDate(todayStr());
 render();
+showSyncStatus();
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+if (window.claude) connectCloud();
+else if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
