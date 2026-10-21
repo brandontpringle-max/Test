@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f4e79">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Training">
+<title>Beginner Training Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>Beginner Strength + 5K</h1></header>
+
+<main>
+  <section id="tab-today">
+    <div class="panel row">
+      <input id="date" type="date" aria-label="Date">
+      <select id="day" aria-label="Workout"></select>
+    </div>
+    <div id="exercises"></div>
+    <div class="panel">
+      <h2>Cardio</h2>
+      <p id="nextRunHint" class="muted"></p>
+      <button type="button" data-goto="run">Go to Couch to 5K</button>
+    </div>
+  </section>
+
+  <section id="tab-lifts" hidden>
+    <p class="muted intro">Estimated 1-rep max is worked out from your best set (3 reps at 60 kg ≈ 66 kg).
+      Lifts run in 4-week blocks. Each block, aim for about 5 kg more than the last one.</p>
+    <div id="lifts"></div>
+  </section>
+
+  <section id="tab-run" hidden>
+    <div class="panel">
+      <h2 id="nextRunTitle"></h2>
+      <p id="nextRunInfo" class="muted"></p>
+      <ol id="nextRunSteps" class="steps"></ol>
+      <button id="startRun" type="button">Start run timer</button>
+    </div>
+    <div class="panel">
+      <h2>9-week plan</h2>
+      <p class="muted">Tap a run to mark it done or not done.</p>
+      <div id="runGrid" class="grid"></div>
+    </div>
+  </section>
+
+  <section id="tab-plan" hidden>
+    <div class="panel">
+      <h2>How each session works</h2>
+      <ol>
+        <li>5–10 min stretch and warm-up.</li>
+        <li>Main compound lift first (bench, squat, overhead press or deadlift).</li>
+        <li>Accessory exercises.</li>
+        <li>Superman holds for the lower back.</li>
+        <li>Then the Couch to 5K run as extra cardio.</li>
+      </ol>
+      <h2>Rules</h2>
+      <ul>
+        <li>Mon–Fri training, Sat and Sun rest.</li>
+        <li>Start with really light weights: 3 sets of 5–10 reps. Good form comes first.</li>
+        <li>When all 3 sets hit the top of the rep range with good form, add a little weight next time.</li>
+        <li>Lower back: do Superman holds every day, at home too. Stop if anything hurts sharply.
+          With an old back injury, see a GP or physio if pain keeps coming back.</li>
+        <li>Train in pairs if you can. It keeps you both motivated.</li>
+      </ul>
+    </div>
+    <div id="week"></div>
+    <div class="panel actions">
+      <button id="exportCsv" type="button">Export CSV</button>
+      <button id="backup" type="button">Backup</button>
+      <label class="button">Restore<input id="restore" type="file" accept="application/json" hidden></label>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button type="button" data-tab="today" class="active">Today</button>
+  <button type="button" data-tab="lifts">Lifts</button>
+  <button type="button" data-tab="run">Run</button>
+  <button type="button" data-tab="plan">Plan</button>
+</nav>
+
+<div id="timer" hidden>
+  <p id="timerSession"></p>
+  <p id="timerPhase"></p>
+  <p id="timerClock">0:00</p>
+  <p id="timerNext"></p>
+  <div class="bar"><div id="timerBar"></div></div>
+  <p id="timerTotal"></p>
+  <div class="row">
+    <button id="timerPause" type="button">Pause</button>
+    <button id="timerStop" type="button">Stop</button>
+  </div>
+</div>
+
+<script src="program.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
